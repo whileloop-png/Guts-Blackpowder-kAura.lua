@@ -1,186 +1,265 @@
---//MAX RANGE IS 25 IMO (anything over will either be buggy or fire before the server can confirm a hit)
 local range = 25
 local killAuraEnabled = false
 local espEnabled = false
 local zombies = game:GetService("Workspace"):WaitForChild("Zombies")
 local player = game:GetService("Players").LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
+local char = player.Character or player.CharacterAdded:Wait()
+local root = char:WaitForChild("HumanoidRootPart")
 local gibRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gib")
 local sabreRemote
 
 local sabreInBackpack = player.Backpack:FindFirstChild("Sabre")
-local sabreInCharacter = character:FindFirstChild("Sabre")
+local sabreInChar = char:FindFirstChild("Sabre")
 if sabreInBackpack then
     sabreRemote = sabreInBackpack:WaitForChild("RemoteEvent")
-elseif sabreInCharacter then
-    sabreRemote = sabreInCharacter:WaitForChild("RemoteEvent")
+elseif sabreInChar then
+    sabreRemote = sabreInChar:WaitForChild("RemoteEvent")
 else
     warn("No Sabre found!")
 end
 
-local function isInRange(zombie)
-    local zombieRoot = zombie:FindFirstChild("HumanoidRootPart")
-    return zombieRoot and (zombieRoot.Position - root.Position).Magnitude <= range
+local function inRange(z)
+    local zRoot = z:FindFirstChild("HumanoidRootPart")
+    return zRoot and (zRoot.Position - root.Position).Magnitude <= range
 end
 
-local function getSortedZombies()
-    local zombieList = {}
-    for _, zombie in ipairs(zombies:GetChildren()) do
-        if zombie:IsA("Model") and zombie:FindFirstChild("HumanoidRootPart") then
-            table.insert(zombieList, zombie)
+local function sortedZ()
+    local zList = {}
+    for _, z in ipairs(zombies:GetChildren()) do
+        if z:IsA("Model") and z:FindFirstChild("HumanoidRootPart") then
+            table.insert(zList, z)
         end
     end
-    table.sort(zombieList, function(a, b)
+    table.sort(zList, function(a, b)
         return (a.HumanoidRootPart.Position - root.Position).Magnitude <
                (b.HumanoidRootPart.Position - root.Position).Magnitude
     end)
-    return zombieList
+    return zList
 end
 
-local function attackZombies()
+local function attackZ()
     if killAuraEnabled then
-        for _, zombie in ipairs(getSortedZombies()) do
-            if isInRange(zombie) then
-                local zombieHead = zombie:FindFirstChild("Head")
-                if zombieHead then
-                    local hitPos = zombieHead.Position
-                    local attackDir = (hitPos - root.Position).Unit
+        for _, z in ipairs(sortedZ()) do
+            if inRange(z) then
+                local zHead = z:FindFirstChild("Head")
+                if zHead then
+                    local hitPos = zHead.Position
+                    local dir = (hitPos - root.Position).Unit
                     sabreRemote:FireServer("Swing", "Over")
-                    gibRemote:FireServer(zombie, "Head", hitPos, attackDir)
-                    sabreRemote:FireServer("HitZombie", zombie, hitPos, false)
+                    gibRemote:FireServer(z, "Head", hitPos, dir)
+                    sabreRemote:FireServer("HitZombie", z, hitPos, false)
                 end
             end
         end
     end
 end
 
-local function addZombieChams(zombie)
-    local coreGui = game:GetService("CoreGui")
-    local folderName = "foldchms_" .. tostring(zombie:GetDebugId())
+local function zombichams(z)
+    local cg = game:GetService("CoreGui")
+    local fn = "foldchms_" .. tostring(z:GetDebugId())
 
-    for _, existing in pairs(coreGui:GetChildren()) do
-        if existing.Name == folderName then
-            existing:Destroy()
+    for _, v in pairs(cg:GetChildren()) do
+        if v.Name == fn then
+            v:Destroy()
         end
     end
 
-    local chamsFolder = Instance.new("Folder")
-    chamsFolder.Name = folderName
-    chamsFolder.Parent = coreGui
+    local chams = Instance.new("Folder")
+    chams.Name = fn
+    chams.Parent = cg
 
-    local bodyParts = {"Torso", "Head", "HumanoidRootPart", "Left Leg", "Right Leg", "Left Arm", "Right Arm"}
-    for _, partName in ipairs(bodyParts) do
-        local part = zombie:FindFirstChild(partName)
+    local parts = {"Torso", "Head", "HumanoidRootPart", "Left Leg", "Right Leg", "Left Arm", "Right Arm"}
+    for _, pName in ipairs(parts) do
+        local part = z:FindFirstChild(pName)
         if part then
-            local adornment = Instance.new("BoxHandleAdornment")
-            adornment.Name = "adorn_" .. part.Name
-            adornment.Parent = chamsFolder
-            adornment.Adornee = part
-            adornment.AlwaysOnTop = true
-            adornment.ZIndex = 10
-            adornment.Size = part.Size
-            adornment.Transparency = 0.7
-            adornment.Color3 = Color3.new(0, 0, 0)
+            local adorn = Instance.new("BoxHandleAdornment")
+            adorn.Name = "adorn_" .. part.Name
+            adorn.Parent = chams
+            adorn.Adornee = part
+            adorn.AlwaysOnTop = true
+            adorn.ZIndex = 10
+            adorn.Size = part.Size
+            adorn.Transparency = 0.7
+            adorn.Color3 = Color3.new(0, 0, 0)
         end
     end
 
-    zombie.AncestryChanged:Connect(function()
-        if not zombie:IsDescendantOf(game) then
-            chamsFolder:Destroy()
+    z.AncestryChanged:Connect(function()
+        if not z:IsDescendantOf(game) then
+            chams:Destroy()
         end
     end)
 end
 
-local function updateESP()
-    for _, zombie in ipairs(zombies:GetChildren()) do
-        if zombie:IsA("Model") and not game:GetService("CoreGui"):FindFirstChild(zombie.Name .. "_CHMS") then
-            addZombieChams(zombie)
+local function freshReload()
+    for _, z in ipairs(zombies:GetChildren()) do
+        if z:IsA("Model") and not game:GetService("CoreGui"):FindFirstChild(z.Name .. "_CHMS") then
+            zombichams(z)
         end
     end
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "598124HTG0GJSDG092QJNVSA09KD1890214"
-screenGui.Parent = game:GetService("CoreGui")
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local scrgui = Instance.new("ScreenGui")
+scrgui.Name = "598124HTG0GJSDG092QJNVSA09KD1890214"
+scrgui.Parent = game:GetService("CoreGui")
+scrgui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "85901YHJ"
-mainFrame.Parent = screenGui
-mainFrame.Position = UDim2.new(0.554938257, 0, 0.390486717, 0)
-mainFrame.Size = UDim2.new(0, 337, 0, 404)
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.BackgroundColor3 = Color3.new(0.188235, 0.188235, 0.188235)
-mainFrame.BackgroundTransparency = 0.15
-mainFrame.BorderSizePixel = 0
+local frm = Instance.new("Frame")
+frm.Name = "85901YHJ"
+frm.Parent = scrgui
+frm.Position = UDim2.new(0.554938257, 0, 0.390486717, 0)
+frm.Size = UDim2.new(0, 337, 0, 404)
+frm.Active = true
+frm.Draggable = true
+frm.BackgroundColor3 = Color3.new(0.188235, 0.188235, 0.188235)
+frm.BackgroundTransparency = 0.15
+frm.BorderSizePixel = 0
 
-local mainFrameCorner = Instance.new("UICorner")
-mainFrameCorner.Parent = mainFrame
+local frmCorner = Instance.new("UICorner")
+frmCorner.Parent = frm
 
-local headerFrame = Instance.new("Frame")
-headerFrame.Name = "overhead"
-headerFrame.Parent = mainFrame
-headerFrame.Size = UDim2.new(0, 337, 0, 68)
-headerFrame.Active = true
-headerFrame.BackgroundColor3 = Color3.new(0.32549, 0.32549, 0.32549)
-headerFrame.BackgroundTransparency = 0.55
-headerFrame.BorderSizePixel = 0
+local frmHead = Instance.new("Frame")
+frmHead.Name = "overhead"
+frmHead.Parent = frm
+frmHead.Size = UDim2.new(0, 337, 0, 68)
+frmHead.Active = true
+frmHead.BackgroundColor3 = Color3.new(0.32549, 0.32549, 0.32549)
+frmHead.BackgroundTransparency = 0.55
+frmHead.BorderSizePixel = 0
 
-local headerCorner = Instance.new("UICorner")
-headerCorner.Parent = headerFrame
+local frmHeadCorner = Instance.new("UICorner")
+frmHeadCorner.Parent = frmHead
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "stackof"
-titleLabel.Parent = mainFrame
-titleLabel.Size = UDim2.new(0, 336, 0, 79)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Stack Overflow"
-titleLabel.TextColor3 = Color3.new(0.854902, 0.854902, 0.854902)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.SourceSansBold
+local txtLabel = Instance.new("TextLabel")
+txtLabel.Name = "stackof"
+txtLabel.Parent = frm
+txtLabel.Size = UDim2.new(0, 336, 0, 79)
+txtLabel.BackgroundTransparency = 1
+txtLabel.Text = "Stack Overflow"
+txtLabel.TextColor3 = Color3.new(0.854902, 0.854902, 0.854902)
+txtLabel.TextScaled = true
+txtLabel.Font = Enum.Font.SourceSansBold
 
-local titleLabelCorner = Instance.new("UICorner")
-titleLabelCorner.Parent = titleLabel
+local txtLabelCorner = Instance.new("UICorner")
+txtLabelCorner.Parent = txtLabel
 
-local killAuraButton = Instance.new("TextButton")
-killAuraButton.Name = "aurabtn"
-killAuraButton.Parent = mainFrame
-killAuraButton.Position = UDim2.new(0.201780409, 0, 0.235148519, 0)
-killAuraButton.Size = UDim2.new(0, 200, 0, 50)
-killAuraButton.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
-killAuraButton.BackgroundTransparency = 0.76
-killAuraButton.Text = "Kill Aura"
-killAuraButton.TextColor3 = Color3.new(0, 0, 0)
-killAuraButton.TextScaled = true
-killAuraButton.Font = Enum.Font.SourceSansBold
+local killBtn = Instance.new("TextButton")
+killBtn.Name = "aurabtn"
+killBtn.Parent = frm
+killBtn.Position = UDim2.new(0.201780409, 0, 0.235148519, 0)
+killBtn.Size = UDim2.new(0, 200, 0, 50)
+killBtn.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
+killBtn.BackgroundTransparency = 0.76
+killBtn.Text = "Kill Aura"
+killBtn.TextColor3 = Color3.new(0, 0, 0)
+killBtn.TextScaled = true
+killBtn.Font = Enum.Font.SourceSansBold
 
-local killAuraButtonCorner = Instance.new("UICorner")
-killAuraButtonCorner.Parent = killAuraButton
+local killBtnCorner = Instance.new("UICorner")
+killBtnCorner.Parent = killBtn
 
-local keyBindButton = Instance.new("TextButton")
-keyBindButton.Name = "setkeybindbtn"
-keyBindButton.Parent = killAuraButton
-keyBindButton.Position = UDim2.new(-0.245, 0, 0.16, 0)
-keyBindButton.Size = UDim2.new(0, 33, 0, 33)
-keyBindButton.BackgroundColor3 = Color3.new(146, 146, 146)
-keyBindButton.BackgroundTransparency = 0.3
-keyBindButton.Text = "bind"
-keyBindButton.TextColor3 = Color3.new(0, 0, 0)
-keyBindButton.TextScaled = true
-keyBindButton.Font = Enum.Font.SourceSansBold
+local killKeyBtn = Instance.new("TextButton")
+killKeyBtn.Name = "setkeybindbtn"
+killKeyBtn.Parent = killBtn
+killKeyBtn.Position = UDim2.new(-0.245, 0, 0.16, 0)
+killKeyBtn.Size = UDim2.new(0, 33, 0, 33)
+killKeyBtn.BackgroundColor3 = Color3.new(146, 146, 146)
+killKeyBtn.BackgroundTransparency = 0.3
+killKeyBtn.Text = "bind"
+killKeyBtn.TextColor3 = Color3.new(0, 0, 0)
+killKeyBtn.TextScaled = true
+killKeyBtn.Font = Enum.Font.SourceSansBold
 
-local keyBindButtonCorner = Instance.new("UICorner")
-keyBindButtonCorner.Parent = keyBindButton
+local killKeyBtnCorner = Instance.new("UICorner")
+killKeyBtnCorner.Parent = killKeyBtn
 
-local espButton = Instance.new("TextButton")
-espButton.Name = "espbtn"
-espButton.Parent = mainFrame
-espButton.Position = UDim2.new(0.201780409, 0, 0.400000000, 0)
-espButton.Size = UDim2.new(0, 200, 0, 50)
-espButton.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
-espButton.BackgroundTransparency = 0.76
-espButton.Text = "Zombie Chams"
-espButton.TextColor3 = Color3.new(0, 0, 0)
-espButton.TextScaled = true
+local espBtn = Instance.new("TextButton")
+espBtn.Name = "espbtn"
+espBtn.Parent = frm
+espBtn.Position = UDim2.new(0.201780409, 0, 0.400000000, 0)
+espBtn.Size = UDim2.new(0, 200, 0, 50)
+espBtn.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
+espBtn.BackgroundTransparency = 0.76
+espBtn.Text = "Zombie Chams"
+espBtn.TextColor3 = Color3.new(0, 0, 0)
+espBtn.TextScaled = true
+espBtn.Font = Enum.Font.SourceSansBold
+
+local espBtnCorner = Instance.new("UICorner")
+espBtnCorner.Parent = espBtn
+
+local destroyBtn = Instance.new("TextButton")
+destroyBtn.Name = "destroy"
+destroyBtn.Parent = frm
+destroyBtn.Position = UDim2.new(0.569732964, 0, 0.866336644, 0)
+destroyBtn.Size = UDim2.new(0, 128, 0, 43)
+destroyBtn.BackgroundColor3 = Color3.new(0.494118, 0.494118, 0.494118)
+destroyBtn.Text = "SCRAP UI"
+destroyBtn.TextColor3 = Color3.new(0.901961, 0.901961, 0.901961)
+destroyBtn.TextScaled = true
+destroyBtn.Font = Enum.Font.SourceSansBold
+
+local destroyBtnCorner = Instance.new("UICorner")
+destroyBtnCorner.Parent = destroyBtn
+
+local keybind = nil
+local settingKey = false
+
+destroyBtn.MouseButton1Click:Connect(function()
+    keybind = nil
+    settingKey = false
+    killAuraEnabled = false
+    espEnabled = false
+    killBtn.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
+    espBtn.BackgroundColor3 = Color3.new(0.678431, 0.678431, 0.678431)
+
+    local cg = game:GetService("CoreGui")
+    for _, v in pairs(cg:GetChildren()) do
+        if string.match(v.Name, "foldchms_") then
+            v:Destroy()
+        end
+    end
+
+    scrgui:Destroy()
+end)
+
+killBtn.MouseButton1Click:Connect(function()
+    killAuraEnabled = not killAuraEnabled
+    killBtn.BackgroundColor3 = killAuraEnabled and Color3.new(0, 1, 0) or Color3.new(0.678431, 0.678431, 0.678431)
+end)
+
+killKeyBtn.MouseButton1Click:Connect(function()
+    settingKey = true
+    killKeyBtn.Text = "..."
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+    if settingKey and not processed then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            keybind = input.KeyCode
+            killKeyBtn.Text = input.KeyCode.Name
+            settingKey = false
+        end
+    end
+
+    if input.KeyCode == keybind then
+        killAuraEnabled = not killAuraEnabled
+        killBtn.BackgroundColor3 = killAuraEnabled and Color3.new(0, 1, 0) or Color3.new(0.678431, 0.678431, 0.678431)
+    end
+end)
+
+espBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espBtn.BackgroundColor3 = espEnabled and Color3.new(0, 1, 0) or Color3.new(0.678431, 0.678431, 0.678431)
+
+    if espEnabled then
+        freshReload()
+    else
+        local cg = game:GetService("CoreGui")
+        for _, v in pairs(cg:GetChildren()) do
+            if string.match(v.Name, "foldchms_") then
+                v:Destroy()
+            end
+        end
+    end
+end)
