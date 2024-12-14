@@ -5,10 +5,12 @@ Kill Aura for the game Guts &amp; Blackpowder
 
 # 12/12/2024
 uhh released the kill aura i guess
+
 u can skid i dont really care didnt take me more than 5 mins
 
 # 12/13/2024
 added zombie chams
+
 added killaura keybinds
 
 https://www.roblox.com/games/12334109280/Guts-Blackpowder#ropro-quick-play
