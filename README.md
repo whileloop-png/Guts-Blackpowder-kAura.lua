@@ -1,7 +1,7 @@
 # Guts-Blackpowder-kAura.lua
 Kill Aura for the game Guts &amp; Blackpowder 
 
-# the updates might be shitty, but im not working full time on writing something for G&B.. sorry, request and i'll complete tho.
+# the updates might be shitty, but im not working full time on writing something for G&B.. sorry, I would love to take requests tho.
 
 # 12/12/2024
 uhh released the kill aura i guess
